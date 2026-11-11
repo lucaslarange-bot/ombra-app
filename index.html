@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#07080c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Ombra">
+<meta name="description" content="Ombra par Mire & Garde — messagerie chiffrée de bout en bout, voix modifiée, partage de position.">
+<link rel="manifest" href="/manifest.webmanifest">
+<link rel="icon" href="/icon.svg" type="image/svg+xml">
+<link rel="apple-touch-icon" href="/icon.svg">
+<title>Ombra — Messagerie chiffrée</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<style>
+:root{--bg:#07080c;--panel:#0f1118;--panel2:#151824;--line:#232738;--txt:#e8eaf2;--mute:#8a90a6;--acc:#8b5cf6;--acc2:#22d3a6;--warn:#f59e0b;--bad:#ef4444;--me:#6d3ef0;--them:#1c2030}
+*{box-sizing:border-box;margin:0;padding:0}
+html,body{height:100%;overflow:hidden}
+body{background:var(--bg);color:var(--txt);font:15px/1.45 Inter,system-ui,-apple-system,sans-serif;-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit;cursor:pointer;border:0;background:none}
+input{font:inherit}
+.screen{display:none;height:100%}
+.screen.on{display:flex}
+
+/* Auth */
+#auth,#setup{align-items:center;justify-content:center;padding:24px;background:radial-gradient(900px 500px at 10% -10%,#1b1236,transparent 60%),radial-gradient(700px 400px at 110% 110%,#0c2a25,transparent 55%),var(--bg)}
+.card{width:100%;max-width:380px;background:var(--panel);border:1px solid var(--line);border-radius:24px;padding:28px}
+.brand{display:flex;align-items:center;gap:12px;margin-bottom:22px}
+.logo{width:42px;height:42px;border-radius:12px;background:linear-gradient(135deg,var(--acc),var(--acc2));display:grid;place-items:center;flex:none}
+.brand h1{font-size:22px;letter-spacing:-.02em}
+.brand p{font-size:12px;color:var(--mute)}
+.field{display:block;margin-bottom:12px}
+.field span{display:block;font-size:12px;color:var(--mute);margin-bottom:5px}
+.field input{width:100%;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:12px;padding:12px 14px;outline:none}
+.field input:focus{border-color:var(--acc)}
+.btn{width:100%;padding:12px;border-radius:12px;background:#ffffff10;font-weight:600;font-size:14px}
+.btn.pri{background:var(--acc)}
+.btn:disabled{opacity:.5}
+.switch{margin-top:14px;text-align:center;font-size:13px;color:var(--mute)}
+.switch button{color:var(--acc2);font-weight:600}
+.feat{margin-top:20px;display:grid;gap:7px;font-size:12.5px;color:var(--mute)}
+.err{color:#fca5a5;font-size:12.5px;min-height:18px;margin-bottom:6px}
+
+/* App */
+#app{display:none;height:100%}
+#app.on{display:grid;grid-template-columns:330px 1fr}
+aside{border-right:1px solid var(--line);background:var(--panel);display:flex;flex-direction:column;min-height:0}
+.me{display:flex;align-items:center;gap:10px;padding:16px;border-bottom:1px solid var(--line);padding-top:max(16px,env(safe-area-inset-top))}
+.me .name{font-weight:700}
+.me .sub{font-size:11.5px;color:var(--mute);display:flex;align-items:center;gap:6px}
+.dot{width:7px;height:7px;border-radius:50%;background:var(--warn);display:inline-block}
+.dot.ok{background:var(--acc2);box-shadow:0 0 8px var(--acc2)}
+.me .out{margin-left:auto;font-size:12px;color:var(--mute);padding:6px 10px;border:1px solid var(--line);border-radius:99px}
+.add{display:flex;gap:8px;padding:12px 14px;border-bottom:1px solid var(--line)}
+.add input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:99px;padding:9px 14px;outline:none;font-size:14px}
+.add button{background:var(--acc);border-radius:99px;padding:0 14px;font-weight:600;font-size:13px}
+.list{flex:1;overflow-y:auto}
+.item{display:flex;align-items:center;gap:11px;padding:12px 16px;border-bottom:1px solid #ffffff08;width:100%;text-align:left}
+.item:hover,.item.sel{background:var(--panel2)}
+.av{width:42px;height:42px;border-radius:50%;display:grid;place-items:center;font-weight:700;flex:none;text-transform:uppercase}
+.item .n{font-weight:600}
+.item .s{font-size:12px;color:var(--mute)}
+.badge{margin-left:auto;background:var(--acc2);color:#04241c;font-size:11px;font-weight:700;border-radius:99px;padding:2px 8px}
+.emptyl{padding:30px 22px;color:var(--mute);font-size:13px;text-align:center}
+.emptyl b{color:var(--txt)}
+
+.chat{display:flex;flex-direction:column;min-height:0;position:relative;background:radial-gradient(800px 400px at 80% 0%,#160f2c55,transparent 60%),var(--bg)}
+.chead{display:flex;align-items:center;gap:11px;padding:12px 16px;border-bottom:1px solid var(--line);background:var(--panel2);padding-top:max(12px,env(safe-area-inset-top))}
+.back{display:none;width:34px;height:34px;border-radius:50%;place-items:center;background:#ffffff0d}
+.chead .n{font-weight:600}
+.chead .s{font-size:11.5px;color:var(--acc2);display:flex;align-items:center;gap:5px}
+.msgs{flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:8px}
+.sys{align-self:center;text-align:center;font-size:11.5px;color:var(--mute);background:#ffffff08;border:1px dashed var(--line);border-radius:12px;padding:8px 12px;max-width:92%}
+.sys b{color:var(--txt);font-family:"JetBrains Mono",monospace;font-weight:500;letter-spacing:.04em}
+.bubble{max-width:min(78%,420px);padding:9px 12px;border-radius:18px;animation:pop .2s ease-out;word-wrap:break-word;white-space:pre-wrap}
+@keyframes pop{from{transform:scale(.94);opacity:0}to{transform:none;opacity:1}}
+.bubble.me{align-self:flex-end;background:var(--me);border-bottom-right-radius:6px}
+.bubble.them{align-self:flex-start;background:var(--them);border-bottom-left-radius:6px}
+.bubble.fail{background:#5b1b1b}
+.bubble.bad{opacity:.6;font-style:italic;font-size:13px}
+.meta{display:flex;gap:6px;justify-content:flex-end;font-size:10.5px;opacity:.7;margin-top:3px;white-space:normal}
+.ttl{color:var(--warn);font-weight:600}
+.vanish{animation:vanish .5s forwards}
+@keyframes vanish{to{opacity:0;transform:scale(.8);filter:blur(6px)}}
+.bubble audio{width:240px;max-width:100%;height:36px;display:block}
+.tag{display:inline-block;font-size:10.5px;padding:2px 7px;border-radius:99px;background:#ffffff1f;margin-bottom:5px;white-space:normal}
+.map{width:250px;max-width:100%;height:160px;border:0;border-radius:12px;display:block;background:#0003}
+.locl{font-size:11.5px;margin-top:6px;display:flex;gap:7px;align-items:center;flex-wrap:wrap;white-space:normal}
+.locl a{color:#fff}
+.live{background:var(--bad);padding:1px 7px;border-radius:99px;font-size:10px;font-weight:700;animation:blink 1.4s infinite}
+@keyframes blink{50%{opacity:.5}}
+.stopbtn{font-size:11px;padding:3px 9px;border-radius:99px;background:#0005}
+.placeholder{margin:auto;text-align:center;color:var(--mute);max-width:300px;font-size:13.5px}
+.placeholder .logo{margin:0 auto 14px;width:56px;height:56px;border-radius:16px}
+
+.ttlsel{display:flex;align-items:center;gap:6px;padding:8px 14px 0;font-size:11.5px;color:var(--mute);background:var(--panel2);border-top:1px solid var(--line)}
+.ttlsel button{padding:3px 9px;border-radius:99px;border:1px solid var(--line);font-size:11px}
+.ttlsel button.sel{border-color:var(--warn);color:var(--warn)}
+.composer{display:flex;gap:8px;align-items:center;padding:10px 12px;background:var(--panel2);padding-bottom:max(10px,env(safe-area-inset-bottom))}
+.composer input{flex:1;min-width:0;background:var(--bg);border:1px solid var(--line);color:var(--txt);border-radius:99px;padding:10px 14px;outline:none}
+.composer input:focus{border-color:var(--acc)}
+.ic{width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#ffffff0d;flex:none}
+.ic svg{width:18px;height:18px}
+.ic.send{background:var(--acc)}
+.ic.rec{background:var(--bad);animation:blink 1s infinite}
+.recbar{display:none;align-items:center;gap:8px;flex:1;color:var(--bad);font-weight:600;font-variant-numeric:tabular-nums}
+.composer.recording input{display:none}.composer.recording .recbar{display:flex}
+
+.sheet{position:absolute;left:0;right:0;bottom:0;background:#151824f7;backdrop-filter:blur(12px);border-top:1px solid var(--line);border-radius:22px 22px 0 0;padding:18px;padding-bottom:max(18px,env(safe-area-inset-bottom));transform:translateY(105%);transition:transform .25s;z-index:5}
+.sheet.open{transform:none}
+.sheet h3{font-size:15px;margin-bottom:4px}
+.sheet .hint{font-size:12px;color:var(--mute);margin-bottom:12px}
+.chips{display:flex;flex-wrap:wrap;gap:7px;margin-bottom:14px}
+.chip{padding:8px 12px;border-radius:99px;background:#ffffff0d;border:1px solid var(--line);font-size:13px}
+.chip.sel{background:var(--acc);border-color:var(--acc)}
+.row{display:flex;gap:8px}
+.opt{display:grid;gap:8px}
+.opt .btn{text-align:left;padding:12px 14px}
+.opt small{display:block;font-weight:400;color:var(--mute);font-size:11.5px}
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(140px);background:#1f2333;border:1px solid var(--line);padding:11px 16px;border-radius:12px;font-size:13px;transition:.3s;z-index:50;max-width:90vw}
+.toast.show{transform:translateX(-50%)}
+
+@media (max-width:760px){
+  #app.on{grid-template-columns:1fr}
+  .chat{display:none}
+  body.chatting aside{display:none}
+  body.chatting .chat{display:flex}
+  .back{display:grid}
+}
+</style>
+</head>
+<body>
+
+<!-- Connexion -->
+<section class="screen" id="auth">
+  <form class="card" id="authForm">
+    <div class="brand"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+      <div><h1>Ombra</h1><p>par Mire &amp; Garde</p></div></div>
+    <label class="field"><span>Email</span><input type="email" id="email" autocomplete="email" required></label>
+    <label class="field"><span>Mot de passe</span><input type="password" id="pass" autocomplete="current-password" minlength="8" required></label>
+    <div class="err" id="authErr"></div>
+    <button class="btn pri" id="authBtn">Se connecter</button>
+    <div class="switch"><span id="swTxt">Pas encore de compte ?</span> <button type="button" id="swBtn">Créer un compte</button></div>
+    <div class="feat"><div>🔒 Chiffrement de bout en bout, clés sur ton appareil</div><div>🎙️ Vocaux avec voix modifiée</div><div>📍 Partage de position, à toi de décider</div><div>⏱️ Messages éphémères</div></div>
+  </form>
+</section>
+
+<!-- Choix du pseudo -->
+<section class="screen" id="setup">
+  <form class="card" id="setupForm">
+    <div class="brand"><div class="logo"><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.4" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>
+      <div><h1>Ton pseudo</h1><p>C'est comme ça que tes contacts te trouvent</p></div></div>
+    <label class="field"><span>Pseudo (3–20 caractères : a-z, 0-9, _)</span><input id="uname" pattern="[a-z0-9_]{3,20}" required autocomplete="off" autocapitalize="none"></label>
+    <div class="err" id="setupErr"></div>
+    <button class="btn pri">Continuer</button>
+  </form>
+</section>
+
+<!-- App -->
+<div id="app">
+  <aside>
+    <div class="me">
+      <div class="av" id="meAv" style="background:#8b5cf622;color:#a78bfa">?</div>
+      <div><div class="name" id="meName">…</div><div class="sub"><span class="dot" id="rtDot"></span><span id="rtTxt">Connexion…</span></div></div>
+      <button class="out" id="logout">Déconnexion</button>
+    </div>
+    <form class="add" id="addForm"><input id="addIn" placeholder="Ajouter un pseudo…" autocomplete="off" autocapitalize="none"><button>Ajouter</button></form>
+    <div class="list" id="list"></div>
+  </aside>
+  <section class="chat" id="chat">
+    <div class="placeholder" id="ph"><div class="logo"><svg width="26" height="26" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="2.2" stroke-linecap="round"><rect x="4" y="10" width="16" height="11" rx="2.5"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg></div>Ajoute un contact avec son pseudo pour commencer une conversation chiffrée.</div>
+  </section>
+</div>
+<div class="toast" id="toast"></div>
+
+<template id="chatTpl">
+  <div class="chead">
+    <button class="back" data-act="back"><svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M15 18l-6-6 6-6"/></svg></button>
+    <div class="av" data-av></div>
+    <div><div class="n" data-n></div><div class="s"><svg width="11" height="11" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.6"><rect x="4" y="10" width="16" height="11" rx="2"/><path d="M8 10V7a4 4 0 0 1 8 0v3"/></svg>Chiffré de bout en bout</div></div>
+  </div>
+  <div class="msgs" data-msgs></div>
+  <div class="ttlsel">Éphémère (après lecture) :
+    <button data-t="0" class="sel">Off</button><button data-t="10">10 s</button><button data-t="30">30 s</button><button data-t="300">5 min</button>
+  </div>
+  <div class="composer">
+    <button class="ic" data-act="loc" title="Partager ma position"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M12 21s-7-6.2-7-11.5a7 7 0 0 1 14 0C19 14.8 12 21 12 21z"/><circle cx="12" cy="9.5" r="2.5"/></svg></button>
+    <input data-in placeholder="Message chiffré…" maxlength="4000">
+    <div class="recbar"><span>●</span><span data-rt>0:00</span><span style="color:var(--mute);font-weight:400;font-size:12px">/ 0:30</span></div>
+    <button class="ic" data-act="mic" title="Message vocal"></button>
+    <button class="ic send" data-act="send" title="Envoyer"><svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"><path d="M5 12h14M13 6l6 6-6 6"/></svg></button>
+  </div>
+  <div class="sheet" data-sheet="voice">
+    <h3>Modificateur de voix</h3>
+    <p class="hint">Choisis un effet, écoute, puis envoie. Seule la voix modifiée est envoyée, chiffrée.</p>
+    <div class="chips" data-chips></div>
+    <audio data-preview controls style="width:100%;margin-bottom:12px;height:36px"></audio>
+    <div class="row"><button class="btn" data-act="vcancel">Annuler</button><button class="btn pri" data-act="vsend">Envoyer le vocal</button></div>
+  </div>
+  <div class="sheet" data-sheet="loc">
+    <h3>Partager ta position</h3>
+    <p class="hint">Envoyée uniquement à ce contact, chiffrée. Tu peux arrêter à tout moment.</p>
+    <div class="opt">
+      <button class="btn" data-act="loc-once">📍 Position actuelle<small>Un seul point, envoyé maintenant</small></button>
+      <button class="btn" data-act="loc-live">🔴 En direct pendant 15 min<small>Mise à jour automatique, s'arrête toute seule</small></button>
+      <button class="btn" data-act="lcancel">Annuler</button>
+    </div>
+  </div>
+  <input type="file" accept="audio/*" data-file hidden>
+</template>
+
+<script>
+"use strict";
+const SB_URL = "https://dnhbteigutljglrnsxpg.supabase.co";
+const SB_KEY = "sb_publishable_X41R90rNJ1dVKhrMS22gYA_XymrPToh";
+const sb = supabase.createClient(SB_URL, SB_KEY);
+
+const $ = (s, r = document) => r.querySelector(s);
+const enc = new TextEncoder(), dec = new TextDecoder();
+const uid = () => Math.random().toString(36).slice(2) + Date.now().toString(36);
+const b64 = buf => { const b = buf instanceof Uint8Array ? buf : new Uint8Array(buf); let s = ""; for (let i = 0; i < b.length; i += 0x8000) s += String.fromCharCode.apply(null, b.subarray(i, i + 0x8000)); return btoa(s); };
+const unb64 = s => { const bin = atob(s); const u = new Uint8Array(bin.length); for (let i = 0; i < bin.length; i++) u[i] = bin.charCodeAt(i); return u; };
+const esc = s => String(s).replace(/[&<>"']/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+const hhmm = t => new Date(t).toLocaleTimeString("fr-FR", {hour:"2-digit", minute:"2-digit"});
+const COLORS = ["#8b5cf6","#22d3a6","#f59e0b","#ec4899","#3b82f6","#ef4444","#14b8a6"];
+const colorOf = s => COLORS[[...s].reduce((a, c) => a + c.charCodeAt(0), 0) % COLORS.length];
+function toast(msg){ const t = $("#toast"); t.textContent = msg; t.classList.add("show"); clearTimeout(t._h); t._h = setTimeout(() => t.classList.remove("show"), 3500); }
+function show(id){ document.querySelectorAll(".screen").forEach(s => s.classList.remove("on")); $("#app").classList.remove("on"); (id === "app" ? $("#app") : $("#" + id)).classList.add("on"); }
+const MIC = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><rect x="9" y="3" width="6" height="12" rx="3"/><path d="M5 11a7 7 0 0 0 14 0M12 18v3"/></svg>';
+const STOP = '<svg viewBox="0 0 24 24" fill="currentColor"><rect x="6" y="6" width="12" height="12" rx="2"/></svg>';
+
+if (!window.isSecureContext || !crypto.subtle) document.body.innerHTML = '<p style="padding:30px">Ombra doit être ouvert en HTTPS.</p>';
+
+/* ================= Clés locales (IndexedDB) ================= */
+function idb(){ return new Promise((res, rej) => { const r = indexedDB.open("ombra", 1); r.onupgradeneeded = () => r.result.createObjectStore("keys"); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+async function idbGet(k){ const db = await idb(); return new Promise((res, rej) => { const q = db.transaction("keys").objectStore("keys").get(k); q.onsuccess = () => res(q.result); q.onerror = () => rej(q.error); }); }
+async function idbSet(k, v){ const db = await idb(); return new Promise((res, rej) => { const q = db.transaction("keys", "readwrite").objectStore("keys").put(v, k); q.onsuccess = () => res(); q.onerror = () => rej(q.error); }); }
+
+async function ensureKeys(userId){
+  let rec = null;
+  try { rec = await idbGet(userId); } catch(e){}
+  if (rec && rec.priv && rec.pub) return rec;
+  const kp = await crypto.subtle.generateKey({name:"ECDH", namedCurve:"P-256"}, false, ["deriveKey"]);
+  rec = {priv: kp.privateKey, pub: b64(await crypto.subtle.exportKey("raw", kp.publicKey))};
+  try { await idbSet(userId, rec); } catch(e){ toast("Navigation privée : tes clés ne seront pas conservées."); }
+  return rec;
+}
+
+/* ================= État ================= */
+let me = null;                 // {id, username, pub, priv}
+const contacts = new Map();    // id -> {id, username, pub, key, safety, unread}
+let active = null, ttl = 0, channel = null;
+let bubbles = new Map();       // msg_id -> element (conversation ouverte)
+
+async function pairKey(pubB64){
+  const pk = await crypto.subtle.importKey("raw", unb64(pubB64), {name:"ECDH", namedCurve:"P-256"}, false, []);
+  return crypto.subtle.deriveKey({name:"ECDH", public:pk}, me.priv, {name:"AES-GCM", length:256}, false, ["encrypt","decrypt"]);
+}
+async function safetyCode(a, b){
+  const [x, y] = [a, b].sort();
+  const h = new Uint8Array(await crypto.subtle.digest("SHA-256", enc.encode(x + "|" + y)));
+  const g = []; for (let i = 0; i < 6; i++) g.push(String(((h[2*i] << 8) | h[2*i+1]) % 100000).padStart(5, "0"));
+  return g.join(" ");
+}
+async function upsertContact(p){
+  const old = contacts.get(p.user_id);
+  if (old && old.pub === p.public_key) return old;
+  const c = {id:p.user_id, username:p.username, pub:p.public_key, unread: old ? old.unread : 0, refreshed: Date.now()};
+  c.key = await pairKey(p.public_key);
+  c.safety = await safetyCode(me.pub, p.public_key);
+  contacts.set(c.id, c);
+  return c;
+}
+async function fetchContact(id){
+  const {data} = await sb.from("ombra_profiles").select("user_id,username,public_key").eq("user_id", id).maybeSingle();
+  return data ? upsertContact(data) : null;
+}
+
+/* ================= Auth ================= */
+let signupMode = false;
+$("#swBtn").onclick = () => {
+  signupMode = !signupMode;
+  $("#authBtn").textContent = signupMode ? "Créer mon compte" : "Se connecter";
+  $("#swTxt").textContent = signupMode ? "Déjà un compte ?" : "Pas encore de compte ?";
+  $("#swBtn").textContent = signupMode ? "Se connecter" : "Créer un compte";
+  $("#pass").autocomplete = signupMode ? "new-password" : "current-password";
+  $("#authErr").textContent = "";
+};
+$("#authForm").onsubmit = async e => {
+  e.preventDefault();
+  const email = $("#email").value.trim(), password = $("#pass").value, btn = $("#authBtn");
+  btn.disabled = true; $("#authErr").textContent = "";
+  try {
+    if (signupMode){
+      const {data, error} = await sb.auth.signUp({email, password, options:{emailRedirectTo: location.origin}});
+      if (error) throw error;
+      if (!data.session){ $("#authErr").style.color = "var(--acc2)"; $("#authErr").textContent = "Compte créé ! Confirme ton email puis connecte-toi."; $("#swBtn").click(); }
+    } else {
+      const {error} = await sb.auth.signInWithPassword({email, password});
+      if (error) throw error;
+    }
+  } catch(err){
+    $("#authErr").style.color = "";
+    const m = err.message || "";
+    $("#authErr").textContent = /Invalid login/i.test(m) ? "Email ou mot de passe incorrect." : /not confirmed/i.test(m) ? "Confirme d'abord ton email." : /already registered/i.test(m) ? "Ce compte existe déjà." : m;
+  }
+  btn.disabled = false;
+};
+$("#logout").onclick = async () => { if (channel) sb.removeChannel(channel); await sb.auth.signOut(); location.reload(); };
+
+sb.auth.onAuthStateChange((ev, session) => {
+  if (session && (!me || me.id !== session.user.id)) setTimeout(() => start(session.user), 0);
+  else if (!session && ev !== "TOKEN_REFRESHED") { me = null; show("auth"); }
+});
+
+async function start(user){
+  me = {id:user.id};
+  const keys = await ensureKeys(user.id);
+  me.priv = keys.priv; me.pub = keys.pub;
+  const {data:prof, error} = await sb.from("ombra_profiles").select("*").eq("user_id", user.id).maybeSingle();
+  if (error){ toast("Erreur de connexion au serveur."); return; }
+  if (!prof){ show("setup"); return; }
+  me.username = prof.username;
+  if (prof.public_key !== me.pub){
+    await sb.from("ombra_profiles").update({public_key:me.pub, updated_at:new Date().toISOString()}).eq("user_id", user.id);
+    toast("Nouvel appareil : nouvelles clés créées. Les anciens messages restent illisibles ici.");
+  }
+  enterApp();
+}
+
+$("#setupForm").onsubmit = async e => {
+  e.preventDefault();
+  const username = $("#uname").value.trim().toLowerCase();
+  const {error} = await sb.from("ombra_profiles").insert({user_id:me.id, username, public_key:me.pub});
+  if (error){ $("#setupErr").textContent = error.code === "23505" ? "Ce pseudo est déjà pris." : "Pseudo invalide (a-z, 0-9, _)."; return; }
+  me.username = username; enterApp();
+};
+
+/* ================= App ================= */
+async function enterApp(){
+  show("app");
+  $("#meName").textContent = "@" + me.username;
+  $("#meAv").textContent = me.username[0]; $("#meAv").style.color = colorOf(me.username); $("#meAv").style.background = colorOf(me.username) + "22";
+  await loadContacts();
+  subscribe();
+}
+
+async function loadContacts(){
+  const ids = new Set();
+  const {data:cs} = await sb.from("ombra_contacts").select("contact");
+  (cs || []).forEach(c => ids.add(c.contact));
+  const {data:inbox} = await sb.from("ombra_messages").select("sender").eq("recipient", me.id).order("created_at", {ascending:false}).limit(300);
+  const newOnes = [];
+  (inbox || []).forEach(r => { if (!ids.has(r.sender)){ ids.add(r.sender); newOnes.push(r.sender); } });
+  if (newOnes.length) await sb.from("ombra_contacts").upsert(newOnes.map(c => ({owner:me.id, contact:c})), {onConflict:"owner,contact", ignoreDuplicates:true});
+  if (ids.size){
+    const {data:profs} = await sb.from("ombra_profiles").select("user_id,username,public_key").in("user_id", [...ids]);
+    for (const p of profs || []) await upsertContact(p);
+  }
+  renderList();
+}
+
+function renderList(){
+  const L = $("#list");
+  if (!contacts.size){ L.innerHTML = `<div class="emptyl">Aucune conversation.<br><br>Donne ton pseudo <b>@${esc(me.username)}</b> à quelqu'un, ou ajoute le sien ci-dessus.</div>`; return; }
+  L.innerHTML = "";
+  [...contacts.values()].sort((a, b) => (b.last || 0) - (a.last || 0) || a.username.localeCompare(b.username)).forEach(c => {
+    const el = document.createElement("button"); el.className = "item" + (c.id === active ? " sel" : "");
+    const col = colorOf(c.username);
+    el.innerHTML = `<div class="av" style="background:${col}22;color:${col}">${esc(c.username[0])}</div><div><div class="n">@${esc(c.username)}</div><div class="s">${c.last ? "Dernier message " + hhmm(c.last) : "Chiffré de bout en bout"}</div></div>${c.unread ? `<span class="badge">${c.unread}</span>` : ""}`;
+    el.onclick = () => openChat(c.id);
+    L.appendChild(el);
+  });
+  const total = [...contacts.values()].reduce((s, c) => s + c.unread, 0);
+  document.title = (total ? `(${total}) ` : "") + "Ombra";
+}
+
+$("#addForm").onsubmit = async e => {
+  e.preventDefault();
+  const u = $("#addIn").value.trim().toLowerCase().replace(/^@/, "");
+  if (!u) return;
+  if (u === me.username){ toast("C'est ton propre pseudo 🙂"); return; }
+  const {data:p} = await sb.from("ombra_profiles").select("user_id,username,public_key").eq("username", u).maybeSingle();
+  if (!p){ toast(`Aucun utilisateur @${u}.`); return; }
+  await sb.from("ombra_contacts").upsert({owner:me.id, contact:p.user_id}, {onConflict:"owner,contact", ignoreDuplicates:true});
+  await upsertContact(p);
+  $("#addIn").value = ""; renderList(); openChat(p.user_id);
+};
+
+/* ================= Temps réel ================= */
+function subscribe(){
+  if (channel) sb.removeChannel(channel);
+  channel = sb.channel("ombra-" + me.id)
+    .on("postgres_changes", {event:"INSERT", schema:"public", table:"ombra_messages", filter:`recipient=eq.${me.id}`}, async ({new:r}) => {
+      const {data} = await sb.from("ombra_messages").select("*").eq("id", r.id).maybeSingle();
+      if (data) handleRow(data, true);
+    })
+    .subscribe(st => {
+      const ok = st === "SUBSCRIBED";
+      $("#rtDot").classList.toggle("ok", ok);
+      $("#rtTxt").textContent = ok ? "En ligne · chiffré" : "Reconnexion…";
+    });
+}
+
+async function decryptRow(c, row){
+  for (let attempt = 0; attempt < 2; attempt++){
+    try {
+      const pt = await crypto.subtle.decrypt({name:"AES-GCM", iv:unb64(row.iv)}, c.key, unb64(row.ct));
+      return JSON.parse(dec.decode(pt));
+    } catch(e){
+      if (attempt === 0 && Date.now() - (c.refreshed || 0) > 3000){ c = await fetchContact(c.id) || c; c.refreshed = Date.now(); }
+      else return null;
+    }
+  }
+  return null;
+}
+
+async function handleRow(row, live){
+  const mine = row.sender === me.id;
+  const otherId = mine ? row.recipient : row.sender;
+  let c = contacts.get(otherId);
+  if (!c){
+    c = await fetchContact(otherId); if (!c) return;
+    sb.from("ombra_contacts").upsert({owner:me.id, contact:otherId}, {onConflict:"owner,contact", ignoreDuplicates:true});
+  }
+  const m = await decryptRow(c, row);
+  c.last = Math.max(c.last || 0, new Date(row.created_at).getTime());
+  if (active === otherId){
+    if (!m) renderBad(row);
+    else render(m, mine);
+  } else if (live){
+    c.unread++;
+    if (document.hidden && m) try { navigator.vibrate && navigator.vibrate(80); } catch(e){}
+  }
+  renderList();
+}
+
+/* ================= Conversation ================= */
+const voice = {}; let recState = null;
+
+async function openChat(id){
+  const c = contacts.get(id); if (!c) return;
+  active = id; c.unread = 0; ttl = 0; bubbles = new Map();
+  document.body.classList.add("chatting");
+  const chat = $("#chat"); chat.innerHTML = ""; chat.appendChild($("#chatTpl").content.cloneNode(true));
+  const col = colorOf(c.username);
+  $("[data-av]", chat).textContent = c.username[0]; $("[data-av]", chat).style.cssText = `background:${col}22;color:${col}`;
+  $("[data-n]", chat).textContent = "@" + c.username;
+  $("[data-act=mic]", chat).innerHTML = MIC;
+  const box = $("[data-msgs]", chat);
+  box.innerHTML = `<div class="sys">Code de sécurité avec @${esc(c.username)} — comparez-le de vive voix pour être sûrs que personne n'intercepte :<br><b>${c.safety}</b></div>`;
+  wireChat(chat);
+  renderList();
+  const {data, error} = await sb.from("ombra_messages").select("*")
+    .or(`and(sender.eq.${me.id},recipient.eq.${id}),and(sender.eq.${id},recipient.eq.${me.id})`)
+    .order("created_at", {ascending:true}).limit(300);
+  if (error){ toast("Impossible de charger la conversation."); return; }
+  for (const row of data || []){ if (active !== id) return; await handleRow(row, false); }
+  $("[data-in]", chat)?.focus({preventScroll:true});
+}
+
+function wireChat(chat){
+  const input = $("[data-in]", chat);
+  const doSend = () => { const t = input.value.trim(); if (!t) return; input.value = ""; send({type:"text", text:t}); };
+  input.addEventListener("keydown", e => { if (e.key === "Enter") doSend(); });
+  chat.addEventListener("click", e => {
+    const b = e.target.closest("[data-act],[data-t]"); if (!b) return;
+    if (b.dataset.t !== undefined){ ttl = +b.dataset.t; chat.querySelectorAll(".ttlsel button").forEach(x => x.classList.toggle("sel", x === b)); return; }
+    const a = b.dataset.act;
+    if (a === "send") doSend();
+    else if (a === "back"){ document.body.classList.remove("chatting"); active = null; renderList(); }
+    else if (a === "mic") toggleRec();
+    else if (a === "loc") openSheet("loc");
+    else if (a === "lcancel" || a === "vcancel") closeSheets();
+    else if (a === "loc-once") shareLoc(false);
+    else if (a === "loc-live") shareLoc(true);
+    else if (a === "vsend") sendVoice();
+  });
+  $("[data-file]", chat).addEventListener("change", async e => { const f = e.target.files[0]; e.target.value = ""; if (f) openVoice(await f.arrayBuffer()); });
+}
+const openSheet = name => { closeSheets(); $(`#chat [data-sheet="${name}"]`)?.classList.add("open"); };
+const closeSheets = () => document.querySelectorAll("#chat .sheet").forEach(s => s.classList.remove("open"));
+
+async function send(payload, to = active){
+  const c = contacts.get(to); if (!c) return;
+  payload.id = payload.id || uid();
+  payload.ts = payload.ts || Date.now();
+  if (payload.ttl === undefined) payload.ttl = ttl;
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const ct = await crypto.subtle.encrypt({name:"AES-GCM", iv}, c.key, enc.encode(JSON.stringify(payload)));
+  if (active === to) render(payload, true);
+  const row = {msg_id:payload.id, sender:me.id, recipient:to, iv:b64(iv), ct:b64(ct),
+    expires_at: payload.ttl ? new Date(Date.now() + 7*864e5).toISOString() : null};
+  const {data, error} = await sb.from("ombra_messages").insert(row).select("id").single();
+  if (error){
+    const el = bubbles.get(payload.id); if (el) el.classList.add("fail");
+    toast(/too large|payload|413/i.test(error.message || "") ? "Fichier trop lourd." : "Échec de l'envoi. Réessaie.");
+    return;
+  }
+  if (payload.type === "loc") sb.from("ombra_messages").delete().eq("msg_id", payload.id).neq("id", data.id).then(() => {});
+  c.last = Date.now(); renderList();
+}
+
+function renderBad(row){
+  const box = $("#chat [data-msgs]"); if (!box) return;
+  const el = document.createElement("div"); el.className = "bubble bad " + (row.sender === me.id ? "me" : "them");
+  el.textContent = "🔒 Message illisible sur cet appareil (clés changées)";
+  box.appendChild(el); box.scrollTop = box.scrollHeight;
+}
+
+function render(m, mine){
+  const box = $("#chat [data-msgs]"); if (!box) return;
+  if (m.ttl && mine && Date.now() - m.ts > m.ttl*1000 + 2000) return;
+  let el = bubbles.get(m.id); const isNew = !el;
+  if (isNew){ el = document.createElement("div"); el.className = "bubble " + (mine ? "me" : "them"); bubbles.set(m.id, el); }
+  let body = "";
+  if (m.type === "text") body = esc(m.text);
+  else if (m.type === "voice"){
+    if (!el._url) el._url = URL.createObjectURL(new Blob([decodeVoice(m)], {type:"audio/wav"}));
+    body = `<span class="tag">🎙 Vocal · voix ${esc(m.fxLabel)}</span><audio controls preload="metadata" src="${el._url}"></audio>`;
+  } else if (m.type === "loc"){
+    if (m.ended || (m.live && Date.now() > m.until)) body = `<span class="tag">📍 Partage de position terminé</span>`;
+    else {
+      const la = m.lat.toFixed(5), lo = m.lon.toFixed(5), d = 0.004;
+      const bbox = [m.lon-d, m.lat-d*.6, m.lon+d, m.lat+d*.6].map(x => x.toFixed(5)).join(",");
+      const stop = (m.live && mine) ? `<button class="stopbtn" data-stop>Arrêter</button>` : "";
+      body = `<span class="tag">📍 ${m.live ? "Position en direct" : "Position"}</span><iframe class="map" loading="lazy" src="https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${la},${lo}"></iframe>
+        <div class="locl">${m.live ? `<span class="live">EN DIRECT</span> jusqu'à ${hhmm(m.until)}` : "Position ponctuelle"} · ±${Math.round(m.acc)} m · <a href="https://www.openstreetmap.org/?mlat=${la}&mlon=${lo}#map=17/${la}/${lo}" target="_blank" rel="noopener">Ouvrir</a> ${stop}</div>`;
+    }
+  }
+  const ttlTag = m.ttl ? `<span class="ttl" data-ttl>⏱ ${m.ttl}s</span>` : "";
+  el.innerHTML = `${body}<div class="meta">${ttlTag}<span>${hhmm(m.ts)}</span>${mine ? "<span>✓</span>" : ""}</div>`;
+  const sb_ = el.querySelector("[data-stop]"); if (sb_) sb_.onclick = () => stopLive();
+  if (isNew){
+    box.appendChild(el);
+    if (m.ttl) countdown(el, m, mine);
+  }
+  box.scrollTop = box.scrollHeight;
+}
+
+function countdown(el, m, mine){
+  let left = mine ? Math.max(1, Math.round(m.ttl - (Date.now() - m.ts)/1000)) : m.ttl;
+  const t = setInterval(() => {
+    left--; const tag = el.querySelector("[data-ttl]"); if (tag) tag.textContent = `⏱ ${left}s`;
+    if (left <= 0){
+      clearInterval(t); el.classList.add("vanish");
+      setTimeout(() => { if (el._url) URL.revokeObjectURL(el._url); el.remove(); bubbles.delete(m.id); }, 500);
+      if (!mine) sb.from("ombra_messages").delete().eq("msg_id", m.id).then(() => {});
+    }
+  }, 1000);
+}
+
+/* ================= Modificateur de voix ================= */
+let AC; const getAC = () => AC || (AC = new (window.AudioContext || window.webkitAudioContext)());
+const OUT_SR = 16000, MAX_S = 30;
+
+async function toggleRec(){
+  if (recState && recState.rec.state === "recording"){ recState.rec.stop(); return; }
+  const chat = $("#chat");
+  if (!navigator.mediaDevices?.getUserMedia || !window.MediaRecorder){ toast("Micro indisponible — choisis un fichier audio."); $("[data-file]", chat).click(); return; }
+  let stream;
+  try { stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true, noiseSuppression:true}}); }
+  catch(e){ toast("Accès au micro refusé — tu peux importer un fichier audio."); $("[data-file]", chat).click(); return; }
+  getAC();
+  const rec = new MediaRecorder(stream), chunks = [];
+  const comp = $(".composer", chat), btn = $("[data-act=mic]", chat), rt = $("[data-rt]", chat), t0 = Date.now();
+  const tick = setInterval(() => { const s = Math.floor((Date.now()-t0)/1000); rt.textContent = `0:${String(s).padStart(2,"0")}`; if (s >= MAX_S) rec.stop(); }, 250);
+  rec.ondataavailable = e => e.data.size && chunks.push(e.data);
+  rec.onstop = async () => {
+    clearInterval(tick); stream.getTracks().forEach(t => t.stop()); recState = null;
+    comp.classList.remove("recording"); btn.classList.remove("rec"); btn.innerHTML = MIC; rt.textContent = "0:00";
+    const blob = new Blob(chunks, {type: rec.mimeType || "audio/webm"});
+    if (blob.size) openVoice(await blob.arrayBuffer());
+  };
+  recState = {rec}; rec.start(); comp.classList.add("recording"); btn.classList.add("rec"); btn.innerHTML = STOP;
+}
+
+function pitchShift(x, p){
+  if (p === 1) return x.slice();
+  const N = 2048, hop = N >> 2, len = x.length, out = new Float32Array(len), norm = new Float32Array(len);
+  const win = new Float32Array(N); for (let i = 0; i < N; i++) win[i] = .5 - .5*Math.cos(2*Math.PI*i/N);
+  for (let s = 0; s < len; s += hop) for (let i = 0; i < N; i++){
+    const o = s + i; if (o >= len) break;
+    const src = s + i*p, j = src | 0; if (j + 1 >= len) continue;
+    const f = src - j; out[o] += (x[j]*(1-f) + x[j+1]*f)*win[i]; norm[o] += win[i];
+  }
+  for (let i = 0; i < len; i++) if (norm[i] > 1e-3) out[i] /= norm[i];
+  return out;
+}
+const ring = (x, sr, f, mix) => { const o = new Float32Array(x.length), w = 2*Math.PI*f/sr; for (let i = 0; i < x.length; i++) o[i] = x[i]*((1-mix) + mix*Math.sin(w*i)); return o; };
+const echo = (x, sr) => { const o = x.slice(), d1 = Math.round(.17*sr), d2 = Math.round(.34*sr); for (let i = 0; i < x.length; i++){ if (i >= d1) o[i] += .45*x[i-d1]; if (i >= d2) o[i] += .25*x[i-d2]; } return o; };
+const lowpass = (x, sr, fc) => { const o = new Float32Array(x.length), a = 1 - Math.exp(-2*Math.PI*fc/sr); let y = 0; for (let i = 0; i < x.length; i++){ y += a*(x[i]-y); o[i] = y; } return o; };
+const FX = [
+  {k:"anonyme", label:"Anonyme", fn:(x,sr)=>lowpass(ring(pitchShift(x,.78),sr,30,.4),sr,3200)},
+  {k:"grave",   label:"Grave",   fn:x=>pitchShift(x,.68)},
+  {k:"aigu",    label:"Aiguë",   fn:x=>pitchShift(x,1.5)},
+  {k:"robot",   label:"Robot",   fn:(x,sr)=>ring(pitchShift(x,.95),sr,55,1)},
+  {k:"alien",   label:"Alien",   fn:(x,sr)=>ring(pitchShift(x,1.3),sr,140,.6)},
+  {k:"echo",    label:"Écho",    fn:(x,sr)=>echo(x,sr)},
+  {k:"normal",  label:"Normale", fn:x=>x.slice()}
+];
+function normalize(x){ let m = 0; for (const v of x) m = Math.max(m, Math.abs(v)); if (m > 0){ const g = .9/m; for (let i = 0; i < x.length; i++) x[i] *= g; } return x; }
+function resample(x, from, to){
+  if (from === to) return x;
+  const r = from/to, n = Math.floor(x.length/r), o = new Float32Array(n), pre = lowpass(x, from, to*.45);
+  for (let i = 0; i < n; i++){ const s = i*r, j = s|0, f = s-j; o[i] = pre[j]*(1-f) + (pre[j+1] ?? pre[j])*f; }
+  return o;
+}
+// Compression µ-law 8 bits (2x plus léger que du PCM 16 bits)
+function muEncode(x){ const o = new Uint8Array(x.length); for (let i = 0; i < x.length; i++){ const s = Math.max(-1, Math.min(1, x[i])); const y = Math.sign(s)*Math.log1p(255*Math.abs(s))/Math.log1p(255); o[i] = Math.round((y + 1)*127.5); } return o; }
+function muDecode(u){ const o = new Float32Array(u.length); for (let i = 0; i < u.length; i++){ const y = u[i]/127.5 - 1; o[i] = Math.sign(y)*(Math.pow(256, Math.abs(y)) - 1)/255; } return o; }
+function toWav(x, sr){
+  const buf = new ArrayBuffer(44 + x.length*2), v = new DataView(buf);
+  const w = (o, s) => { for (let i = 0; i < s.length; i++) v.setUint8(o+i, s.charCodeAt(i)); };
+  w(0,"RIFF"); v.setUint32(4, 36 + x.length*2, true); w(8,"WAVE"); w(12,"fmt ");
+  v.setUint32(16,16,true); v.setUint16(20,1,true); v.setUint16(22,1,true); v.setUint32(24,sr,true); v.setUint32(28,sr*2,true); v.setUint16(32,2,true); v.setUint16(34,16,true);
+  w(36,"data"); v.setUint32(40, x.length*2, true);
+  for (let i = 0; i < x.length; i++){ const s = Math.max(-1, Math.min(1, x[i])); v.setInt16(44+i*2, s < 0 ? s*0x8000 : s*0x7fff, true); }
+  return new Uint8Array(buf);
+}
+const decodeVoice = m => toWav(muDecode(unb64(m.mu)), m.sr);
+
+async function openVoice(arrayBuf){
+  let ab;
+  try { ab = await getAC().decodeAudioData(arrayBuf.slice(0)); } catch(e){ toast("Impossible de lire cet audio."); return; }
+  const n = Math.min(ab.length, ab.sampleRate*MAX_S), mono = new Float32Array(n);
+  for (let c = 0; c < ab.numberOfChannels; c++){ const d = ab.getChannelData(c); for (let i = 0; i < n; i++) mono[i] += d[i]/ab.numberOfChannels; }
+  voice.src = resample(mono, ab.sampleRate, OUT_SR);
+  const chips = $("#chat [data-chips]");
+  chips.innerHTML = FX.map((f, i) => `<button class="chip${i === 0 ? " sel" : ""}" data-fx="${f.k}">${f.label}</button>`).join("");
+  chips.onclick = e => { const b = e.target.closest("[data-fx]"); if (!b) return; chips.querySelectorAll(".chip").forEach(c => c.classList.toggle("sel", c === b)); applyFx(b.dataset.fx, true); };
+  openSheet("voice"); applyFx("anonyme", false);
+}
+function applyFx(k, play){
+  if (!voice.src) return;
+  const f = FX.find(f => f.k === k);
+  const processed = normalize(f.fn(voice.src, OUT_SR));
+  voice.mu = muEncode(processed); voice.label = f.label;
+  if (voice.url) URL.revokeObjectURL(voice.url);
+  voice.url = URL.createObjectURL(new Blob([toWav(muDecode(voice.mu), OUT_SR)], {type:"audio/wav"}));
+  const pv = $("#chat [data-preview]"); pv.src = voice.url; if (play) pv.play().catch(() => {});
+}
+function sendVoice(){
+  if (!voice.mu) return;
+  $("#chat [data-preview]").pause(); closeSheets();
+  send({type:"voice", mu:b64(voice.mu), sr:OUT_SR, fxLabel:voice.label});
+  URL.revokeObjectURL(voice.url); voice.src = voice.mu = voice.url = null;   // la voix originale n'est jamais envoyée
+}
+
+/* ================= Position (partagée volontairement) ================= */
+let live = null;
+const geoErr = e => e.code === 1 ? "Accès à la position refusé." : e.code === 3 ? "Position introuvable (délai dépassé)." : "Position indisponible.";
+function shareLoc(isLive){
+  closeSheets();
+  if (!navigator.geolocation){ toast("Géolocalisation indisponible."); return; }
+  const to = active;
+  if (isLive){
+    stopLive(true);
+    const id = uid(), until = Date.now() + 15*60*1000; let last = 0;
+    const watch = navigator.geolocation.watchPosition(p => {
+      if (Date.now() - last < 8000) return; last = Date.now();
+      send({id, ts:Date.now(), ttl:0, type:"loc", live:true, until, lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy}, to);
+    }, err => { toast(geoErr(err)); stopLive(true); }, {enableHighAccuracy:true, maximumAge:5000, timeout:20000});
+    live = {id, to, watch, timer:setTimeout(() => stopLive(), 15*60*1000)};
+    toast("Position en direct activée pour 15 min.");
+  } else {
+    navigator.geolocation.getCurrentPosition(p => send({type:"loc", live:false, lat:p.coords.latitude, lon:p.coords.longitude, acc:p.coords.accuracy}, to),
+      err => toast(geoErr(err)), {enableHighAccuracy:true, timeout:20000});
+  }
+}
+function stopLive(silent){
+  if (!live) return;
+  navigator.geolocation.clearWatch(live.watch); clearTimeout(live.timer);
+  const {id, to} = live; live = null;
+  if (!silent){ send({id, ts:Date.now(), ttl:0, type:"loc", ended:true}, to); toast("Partage de position arrêté."); }
+}
+</script>
+</body>
+</html>
